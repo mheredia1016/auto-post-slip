@@ -1,2 +1,8 @@
 [phases.setup]
 nixPkgs = ["python311", "tesseract", "tesseractData.eng"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[phases.start]
+cmd = "python main.py"
