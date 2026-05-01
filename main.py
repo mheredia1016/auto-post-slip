@@ -7,8 +7,6 @@ from PIL import Image
 import pytesseract
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GAMBLY_MENTION = os.getenv("GAMBLY_MENTION", "@GamblyBot")
-PLAYBOOK_MENTION = os.getenv("PLAYBOOK_MENTION", "@Playbook")
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN")
@@ -33,10 +31,8 @@ SLIP_WORDS = [
     "betmgm", "caesars", "fanatics", "espn bet", "bet365", "bet 365"
 ]
 
-
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
-
 
 async def ocr_attachment(attachment: discord.Attachment) -> str:
     if not attachment.content_type or not attachment.content_type.startswith("image/"):
@@ -56,36 +52,9 @@ async def ocr_attachment(attachment: discord.Attachment) -> str:
         print(f"OCR failed: {e}")
         return ""
 
-
-class GenerateLinkView(discord.ui.View):
-    def __init__(self, target_bot: str):
-        super().__init__(timeout=None)
-        self.target_bot = target_bot
-
-    @discord.ui.button(
-        label="🔥 Tap to generate Gambly link",
-        style=discord.ButtonStyle.primary,
-        custom_id="generate_gambly_link_button"
-    )
-    async def generate_link(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.target_bot == "playbook":
-            instructions = (
-                f"Copy/paste this as a real user reply under the slip:\n\n"
-                f"{PLAYBOOK_MENTION} can you create a link for this Bet365 slip?"
-            )
-        else:
-            instructions = (
-                f"Copy/paste this as a real user reply under the slip:\n\n"
-                f"{GAMBLY_MENTION} can you create a link for this slip?"
-            )
-
-        await interaction.response.send_message(instructions, ephemeral=True)
-
-
 @client.event
 async def on_ready():
     print(f"✅ Logged in as {client.user}")
-
 
 @client.event
 async def on_message(message):
@@ -108,10 +77,10 @@ async def on_message(message):
     )
 
     print("---- MESSAGE CHECK ----")
-    print(combined_text[:1000])
+    print(combined_text[:500])
 
+    # Ignore finished/live slips
     if any(word in combined_text for word in IGNORE_STATUS_WORDS):
-        print("Ignored: status slip")
         return
 
     looks_like_slip = has_image or any(word in combined_text for word in SLIP_WORDS)
@@ -119,19 +88,12 @@ async def on_message(message):
     if not looks_like_slip:
         return
 
+    # Bet365 → 📘
     if any(word in combined_text for word in BET365_WORDS):
-        await message.reply(
-            "Bet365 slip detected. Use Playbook for this one.",
-            mention_author=False,
-            view=GenerateLinkView("playbook")
-        )
+        await message.add_reaction("📘")
         return
 
-    await message.reply(
-        "Slip detected.",
-        mention_author=False,
-        view=GenerateLinkView("gambly")
-    )
-
+    # Everything else → 🔥
+    await message.add_reaction("🔥")
 
 client.run(DISCORD_TOKEN)
